@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+import { API_URL } from './config/api'
+
+const API_BASE = API_URL
 const HISTORY_KEY = 'querymind-research-history'
 const LEGACY_HISTORY_KEY = 'perplexicity-research-history'
 
