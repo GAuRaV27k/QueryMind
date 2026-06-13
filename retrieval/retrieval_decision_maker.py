@@ -14,6 +14,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from API.gemini_client import genai
+
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 from translate_chunk.extended_queries import get_extended_query
 from retrieval.retrieval_tool_capability import TOOL_CAPABILITIES
 from retrieval.retrieval_plan import RetrievalPlan
@@ -107,7 +110,12 @@ def _filter_tool_capabilities(tool_capabilities: Dict[str, dict]) -> Dict[str, d
 
 
 def _get_model_name(model: str | None) -> str:
-    return model or os.getenv("GROQ_PLANNER_MODEL") or os.getenv("GROQ_MODEL") or "llama-3.1-8b-instant"
+    return (
+        model
+        or os.getenv("GEMINI_PLANNER_MODEL")
+        or "gemini-2.5-flash"
+    )
+
 
 
 def _get_temperature() -> float:
@@ -115,7 +123,7 @@ def _get_temperature() -> float:
     try:
         return float(value)
     except ValueError as exc:
-        raise ValueError(f"Invalid GROQ_PLANNER_TEMPERATURE: {value}") from exc
+        raise ValueError(f"Invalid gemini_PLANNER_TEMPERATURE: {value}") from exc
 
 # ================================================================================
 def _normalize_queries(original_query: str, expanded_queries: Sequence[str] | None) -> List[str]:
@@ -488,17 +496,33 @@ def _build_messages(
     ]
 
 
-def _call_planner(messages: List[Dict[str, str]], model: str) -> str:
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=_get_temperature(),
-    )
-    content = response.choices[0].message.content if response.choices else None
-    if not content:
-        raise RuntimeError("Groq planner returned an empty response")
-    return content
+def _call_planner(
+    messages: List[Dict[str, str]],
+    model: str
+) -> str:
 
+    prompt = "\n\n".join(
+        f"{msg['role'].upper()}:\n{msg['content']}"
+        for msg in messages
+    )
+
+    response = gemini_client.models.generate_content(
+        model=model,
+        contents=prompt,
+        config={
+            "temperature": _get_temperature(),
+            "max_output_tokens":800,
+        },
+    )
+
+    content = response.text
+
+    if not content:
+        raise RuntimeError(
+            "Gemini planner returned an empty response"
+        )
+
+    return content
 
 def _plan_with_retries(
     messages: List[Dict[str, str]],
