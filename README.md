@@ -1,4 +1,4 @@
-# QueryMind
+# (QueryMind)[https://query-mind-ochre.vercel.app/]
 
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)
