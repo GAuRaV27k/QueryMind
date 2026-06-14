@@ -1,5 +1,6 @@
-# (QueryMind)[https://query-mind-ochre.vercel.app/]
+## 🔍 QueryMind
 
+🌐 **Live Demo:** [QueryMind](https://query-mind-ochre.vercel.app/)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-async-009688)
 ![React](https://img.shields.io/badge/React-19-61DAFB)
