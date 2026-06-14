@@ -484,7 +484,7 @@ def _build_messages(
 ) -> List[Dict[str, str]]:
     payload = {
         "original_query": original_query,
-        "expanded_queries": expanded_queries,
+        "expanded_queries": expanded_queries[:3],
         "tool_capabilities": tool_capabilities,
         "intent_taxonomy": INTENT_TAXONOMY,
         "priority_levels": sorted(ALLOWED_PRIORITIES),
