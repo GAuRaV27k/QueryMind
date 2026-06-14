@@ -14,9 +14,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from API.gemini_client import genai
+from API.gemini_client import client
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# client = Client(api_key=os.getenv("GEMINI_API_KEY"))
 from translate_chunk.extended_queries import get_extended_query
 from retrieval.retrieval_tool_capability import TOOL_CAPABILITIES
 from retrieval.retrieval_plan import RetrievalPlan
