@@ -63,6 +63,10 @@ class AnswerResponse(BaseModel):
     request_id: str
     status: str
     answer: str | None = None
+    query: str | None = None
+    sources: list[dict] | None = None
+    error: str | None = None
+    Time: str | None = None
 
 
 
@@ -148,16 +152,12 @@ async def run_pipeline(
 
 
         _store[request_id]["status"] = "Prompt Building"
-        prompt = build_prompt(
-            query,
-            context,
-            intent= intent
-        )
+        prompt = build_prompt(query, context, intent=intent)
         
         _store[request_id]["status"] = "Answer Generation"
         answer = await generate_answer(prompt)
 
-        _store[request_id]["status"] = "Citation Mapping "
+        _store[request_id]["status"] = "Citation Mapping"
         citation_map = build_citation_map(top_k)
 
         final_answer = append_references(

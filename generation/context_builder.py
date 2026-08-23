@@ -16,7 +16,7 @@ def build_context(results,max_content_chars=1200):
 
         context.append(
             f"""
-    [Source {i}]
+    [Source S{i}]
     Title: {result.title}
     URL: {result.url}
     Provider: {result.provider}

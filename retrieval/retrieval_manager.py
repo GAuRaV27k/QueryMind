@@ -1,14 +1,12 @@
 from pathlib import Path
 import asyncio
 import sys
+import time
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-from search.provider.travily import travily_search
-from search.provider.you import you_search
-from search.provider.exa import exa_client
-from retrieval.retrieval_decision_maker import plan_retrieval, plan_retrieval_async
-from pprint import pprint
+from retrieval.retrieval_decision_maker import plan_retrieval_async
 from API.travily_client import tavily_client
 from API.you_client import you_client
 from API.exa_client import exa_client
@@ -82,6 +80,17 @@ async def _call_tavily(
     # -----------------------------
     # Execute Search
     # -----------------------------
+
+    if tavily_client is None:
+        return {
+            "provider": "tavily",
+            "query": query,
+            "intent": intent,
+            "priority": priority,
+            "status": "failed",
+            "error": "tavily client unavailable",
+            "response": None,
+        }
 
     search_call = tavily_client.search
 
@@ -161,6 +170,9 @@ async def _call_you(
 
     try:
 
+        if you_client is None:
+            raise RuntimeError("you client unavailable")
+
         search_call = you_client.search.unified
 
         if asyncio.iscoroutinefunction(search_call):
@@ -230,6 +242,17 @@ async def _call_exa(
         "contents": contents,
     }
 
+    if exa_client is None:
+        return {
+            "provider": "exa",
+            "query": query,
+            "intent": intent,
+            "priority": priority,
+            "status": "failed",
+            "error": "exa client unavailable",
+            "response": None,
+        }
+
     search_call = exa_client.search
 
     try:
@@ -271,7 +294,21 @@ async def retrivel_search(user_query: str) -> dict:
     if not user_query or not user_query.strip():
         raise ValueError("user_query must not be empty")
 
+    traced = await retrivel_search_with_trace(user_query)
+    return {
+        "plans": traced["plans"],
+        "results": traced["results"],
+        "failures": traced["failures"],
+    }
+
+
+async def retrivel_search_with_trace(user_query: str) -> dict:
+    if not user_query or not user_query.strip():
+        raise ValueError("user_query must not be empty")
+
+    t0 = time.perf_counter()
     planned_retrieval = await plan_retrieval_async(user_query)
+    planning_ms = (time.perf_counter() - t0) * 1000
 
     tasks: list = []
     for plan in planned_retrieval:
@@ -286,19 +323,42 @@ async def retrivel_search(user_query: str) -> dict:
                 raise ValueError(f"Unsupported tool: {tool}")
 
     if not tasks:
-        return {"plans": planned_retrieval, "results": [], "failures": []}
+        return {
+            "plans": planned_retrieval,
+            "provider_bundles": [],
+            "results": [],
+            "failures": [],
+            "metrics": {"planning_ms": planning_ms, "provider_ms": 0.0, "normalized_count": 0},
+        }
 
-    bundles = await asyncio.gather(*tasks)
+    t1 = time.perf_counter()
+    bundles = await asyncio.gather(*tasks, return_exceptions=True)
+    provider_ms = (time.perf_counter() - t1) * 1000
 
     results: list[UnifiedRetrievalResult] = []
     failures: list[dict] = []
+    provider_bundles: list[dict] = []
     for bundle in bundles:
+        if isinstance(bundle, Exception):
+            failures.append({"status": "failed", "error": str(bundle), "provider": "unknown"})
+            continue
+        provider_bundles.append(bundle)
         if bundle.get("status") != "success":
             failures.append(bundle)
             continue
         results.extend(normalize_provider_bundle(bundle))
 
-    return {"plans": planned_retrieval, "results": results, "failures": failures}
+    return {
+        "plans": planned_retrieval,
+        "provider_bundles": provider_bundles,
+        "results": results,
+        "failures": failures,
+        "metrics": {
+            "planning_ms": planning_ms,
+            "provider_ms": provider_ms,
+            "normalized_count": len(results),
+        },
+    }
 
 
 

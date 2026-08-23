@@ -37,8 +37,7 @@ def build_prompt(user_query, context, intent="general"):
         intent_rules["general"]
     )
 
-    return f"""
-Question:
+    return f"""Question:
 {user_query}
 
 Retrieved Sources:
@@ -47,8 +46,9 @@ Retrieved Sources:
 Instructions:
 {rules}
 
+If the retrieved sources are insufficient, say so clearly.
+
 Answer:
 """
-
 
 

@@ -8,14 +8,13 @@ if str(PROJECT_ROOT) not in sys.path:
 from API.gemini_client import client
 
 async def generate_answer(prompt):
-    print("inside generate_answer")
+    if client is None:
+        raise RuntimeError("Gemini client is unavailable. Check GEMINI_API_KEY and google-genai installation.")
 
     response = client.models.generate_content(
         model="gemini-2.5-flash-lite",
         contents=prompt
     )
-
-    print("gemini response received")
 
     return response.text
 

@@ -497,6 +497,8 @@ def _build_messages(
 
 
 def _call_planner(messages: List[Dict[str, str]], model: str) -> str:
+    if client is None:
+        raise RuntimeError("Groq planner client is unavailable.")
     response = client.chat.completions.create(
 
 
@@ -533,7 +535,11 @@ def _plan_with_retries(
 ) -> List[RetrievalPlan]:
     last_error: Exception | None = None
     for attempt in range(max_retries + 1):
-        content = _call_planner(messages, model)
+        try:
+            content = _call_planner(messages, model)
+        except Exception as exc:
+            last_error = exc
+            break
         try:
             return _parse_plans(content, allowed_tools, expected_queries)
         except (ValueError, json.JSONDecodeError) as exc:
@@ -576,13 +582,17 @@ def plan_retrieval(
     normalized_queries = _normalize_queries(query, expanded_queries)
     messages = _build_messages(query, normalized_queries, capabilities)
     model_name = _get_model_name(model)
-    return _plan_with_retries(
-        messages,
-        model_name,
-        capabilities.keys(),
-        normalized_queries,
-        max_retries,
-    )
+    try:
+        return _plan_with_retries(
+            messages,
+            model_name,
+            capabilities.keys(),
+            normalized_queries,
+            max_retries,
+        )
+    except (RuntimeError, ValueError, json.JSONDecodeError):
+        available_tools = list(capabilities.keys())
+        return [_fallback_plan_for_query(query_item, available_tools) for query_item in normalized_queries]
 
 
 async def plan_retrieval_async(
@@ -600,15 +610,19 @@ async def plan_retrieval_async(
     messages = _build_messages(query, normalized_queries, capabilities)
     model_name = _get_model_name(model)
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
-        None,
-        _plan_with_retries,
-        messages,
-        model_name,
-        capabilities.keys(),
-        normalized_queries,
-        max_retries,
-    )
+    try:
+        return await loop.run_in_executor(
+            None,
+            _plan_with_retries,
+            messages,
+            model_name,
+            capabilities.keys(),
+            normalized_queries,
+            max_retries,
+        )
+    except (RuntimeError, ValueError, json.JSONDecodeError):
+        available_tools = list(capabilities.keys())
+        return [_fallback_plan_for_query(query_item, available_tools) for query_item in normalized_queries]
 
 
 

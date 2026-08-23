@@ -4,8 +4,6 @@ import asyncio
 import os
 from typing import List
 
-from groq import Groq
-
 from query_expansion.providers import register_provider
 from query_expansion.types import QueryExpansionProvider
 from query_expansion.utils import parse_query_list
@@ -18,7 +16,15 @@ class GroqQueryExpander(QueryExpansionProvider):
 
     def __init__(self) -> None:
         api_key = os.getenv("GROQ_API_KEY")
-        self._client = Groq(api_key=api_key) if api_key else None
+        if not api_key:
+            self._client = None
+            return
+        try:
+            from groq import Groq
+        except Exception:
+            self._client = None
+            return
+        self._client = Groq(api_key=api_key)
 
     def is_available(self) -> bool:
         return self._client is not None

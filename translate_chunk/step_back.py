@@ -9,6 +9,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 def stepback(context :str) ->str:
+    if client is None:
+        raise RuntimeError("Gemini client is unavailable for step-back query generation.")
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=f"""
@@ -23,5 +25,4 @@ def stepback(context :str) ->str:
     if text is None:
         raise ValueError("No text returned from generate_content")
     return text
-
 

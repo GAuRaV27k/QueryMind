@@ -1,19 +1,28 @@
 import time
-from flashrank import Ranker, RerankRequest
+try:
+    from flashrank import Ranker, RerankRequest
+except Exception as exc:  # pragma: no cover - environment dependent
+    Ranker = None
+    RerankRequest = None
+    _flashrank_import_error = str(exc)
+else:
+    _flashrank_import_error = None
 
-print("[reranker] Loading FlashRank...", flush=True)
-
-_t0 = time.time()
-
-ranker = Ranker()
-
-print(
-    f"[reranker] FlashRank ready in {time.time() - _t0:.1f}s",
-    flush=True
-)
+_ranker = None
 
 
-async def reranker(results):
+def _get_ranker():
+    if Ranker is None:
+        raise RuntimeError(f"FlashRank is unavailable: {_flashrank_import_error}")
+    global _ranker
+    if _ranker is None:
+        _t0 = time.time()
+        _ranker = Ranker()
+        print(f"[reranker] FlashRank ready in {time.time() - _t0:.1f}s", flush=True)
+    return _ranker
+
+
+async def reranker(results, ranker_instance=None):
 
     print(
         f"[reranker] reranker() called with {len(results)} results",
@@ -22,6 +31,8 @@ async def reranker(results):
 
     if not results:
         return []
+    if RerankRequest is None and ranker_instance is None:
+        raise RuntimeError(f"FlashRank is unavailable: {_flashrank_import_error}")
 
     query = results[0].query
 
@@ -33,18 +44,24 @@ async def reranker(results):
             "text": result.content[:1500]
         })
 
-    request = RerankRequest(
-        query=query,
-        passages=passages
-    )
+    if RerankRequest is None:
+        request = {"query": query, "passages": passages}
+    else:
+        request = RerankRequest(
+            query=query,
+            passages=passages
+        )
 
-    ranked_passages = ranker.rerank(request)
+    ranker_obj = ranker_instance or _get_ranker()
+    ranked_passages = ranker_obj.rerank(request)
 
     ranked_results = []
 
     for item in ranked_passages:
-
-        result = results[item["id"]]
+        result_idx = item["id"]
+        if not isinstance(result_idx, int) or result_idx < 0 or result_idx >= len(results):
+            continue
+        result = results[result_idx]
 
         result.rerank_score = float(
             item.get("score", 0.0)
@@ -52,11 +69,4 @@ async def reranker(results):
 
         ranked_results.append(result)
 
-    print(
-        f"[reranker] Top score = {ranked_results[0].rerank_score:.4f}",
-        flush=True
-    )
-
-    return ranked_results
-
-
+    return ranked_results if ranked_results else results
